@@ -1,0 +1,12 @@
+[submodule "extern/jaffarCommon"]
+	path = extern/jaffarCommon
+	url = https://github.com/SergioMartin86/jaffarCommon.git
+[submodule "source/core/opera-libretro"]
+	path = source/core/opera-libretro
+	url = https://github.com/TASEmulators/opera-libretro.git
+[submodule "tests/bios"]
+	path = tests/bios
+	url = https://github.com/trapexit/3do-bios.git
+[submodule "tests/roms/JinglesDefense"]
+	path = tests/roms/JinglesDefense
+	url = https://github.com/retroloveletter/JinglesDefense.git
