@@ -91,6 +91,18 @@ class EmuInstance
      jaffarCommon::logger::log(" }\n");
   }
 
+  inline bool canMoveUp() const {return _room.canMoveUp(); }
+  inline bool canMoveDown() const {return _room.canMoveDown(); }
+  inline bool canMoveLeft() const {return _room.canMoveLeft(); }
+  inline bool canMoveRight() const {return _room.canMoveRight(); }
+  inline size_t getBoxesOnGoal() const {return _room.getBoxesOnGoal(); }
+  inline size_t getGoalCount() const {return _room.getGoalCount(); }
+
+  inline uint8_t* getState() const 
+  {
+    return _room.getState();
+  }
+
   inline size_t getStateSize() const 
   {
     return _stateSize;
@@ -100,7 +112,7 @@ class EmuInstance
   
   void serializeState(jaffarCommon::serializer::Base& s) const
   {
-    _room.saveState(s.getOutputDataBuffer());
+    if (s.getOutputDataBuffer() != nullptr) _room.saveState(s.getOutputDataBuffer());
     s.push(nullptr, _stateSize);
   }
 

@@ -258,8 +258,6 @@ class Room
     const auto pusherPosY = _state[0];
     const auto pusherPosX = _state[1];
 
-    const auto index = getIndex(pusherPosY, pusherPosX);
-
     // Getting index of destination square
     const auto nextTilePosY = pusherPosY+(1 * deltaY);
     const auto nextTilePosX = pusherPosX+(1 * deltaX);

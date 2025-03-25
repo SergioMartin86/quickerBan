@@ -36,6 +36,11 @@ public:
   {
   }
 
+  inline input_t parseInputString(const std::string& s) const
+  {
+    return parseInputString(s[0]);
+  };
+
   inline input_t parseInputString(const char c) const
   {
     // Storage for the input
