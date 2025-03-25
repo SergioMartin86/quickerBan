@@ -83,18 +83,15 @@ int main(int argc, char *argv[])
   std::string sequenceRaw;
   if (jaffarCommon::file::loadStringFromFile(sequenceRaw, sequenceFilePath) == false) JAFFAR_THROW_LOGIC("[ERROR] Could not find or read from input sequence file: %s\n", sequenceFilePath.c_str());
 
-  // Building sequence information
-  const auto sequence = jaffarCommon::string::split(sequenceRaw, '\n');
-
   // Getting sequence lenght
-  const auto sequenceLength = sequence.size();
+  const auto sequenceLength = sequenceRaw.size();
 
   // Getting input parser from the emulator
   const auto inputParser = e.getInputParser();
 
   // Getting decoded emulator input for each entry in the sequence
   std::vector<jaffar::input_t> decodedSequence;
-  for (const auto &inputString : sequence) decodedSequence.push_back(inputParser->parseInputString(inputString));
+  for (const auto &input : sequenceRaw) decodedSequence.push_back(inputParser->parseInputString(input));
 
   // Getting emulation core name
   std::string emulationCoreName = e.getCoreName();
@@ -138,6 +135,8 @@ int main(int argc, char *argv[])
   auto t0 = std::chrono::high_resolution_clock::now();
   for (const auto &input : decodedSequence)
   {
+    // e.printInfo();
+    
     if (doPreAdvance == true) e.advanceState(input);
     
     if (doDeserialize == true)
@@ -166,6 +165,9 @@ int main(int argc, char *argv[])
   // Creating hash string
   char hashStringBuffer[256];
   sprintf(hashStringBuffer, "0x%lX%lX", result.first, result.second);
+
+  // Printing Info
+  e.printInfo();
 
   // Printing time information
   printf("[] Elapsed time:                           %3.3fs\n", (double)dt * 1.0e-9);

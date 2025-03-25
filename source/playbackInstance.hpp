@@ -10,7 +10,7 @@
 struct stepData_t
 {
   jaffar::input_t inputData;
-  std::string inputString;
+  char input;
   uint8_t *stateData;
   uint8_t *videoBuffer;
   jaffarCommon::hash::hash_t hash;
@@ -21,7 +21,7 @@ class PlaybackInstance
   public:
 
   // Initializes the playback module instance
-  PlaybackInstance(jaffar::EmuInstance *emu, const std::vector<std::string> &sequence, const std::string& cycleType) :
+  PlaybackInstance(jaffar::EmuInstance *emu, const std::string &sequence, const std::string& cycleType) :
    _emu(emu)
   {
     // Getting full state size
@@ -38,8 +38,8 @@ class PlaybackInstance
     {
       // Adding new step
       stepData_t step;
-      step.inputString = sequence[i];
-      step.inputData = inputParser->parseInputString(step.inputString);
+      step.input = sequence[i];
+      step.inputData = inputParser->parseInputString(step.input);
 
       // Serializing state
       jaffarCommon::serializer::Contiguous s(stateData, _fullStateSize);
@@ -70,7 +70,7 @@ class PlaybackInstance
 
     // Adding last step with no input
     stepData_t step;
-    step.inputString = "<End Of Sequence>";
+    step.input = '.';
     step.inputData = _stepSequence.rbegin()->inputData;
     step.stateData = (uint8_t *)malloc(_fullStateSize);
     jaffarCommon::serializer::Contiguous s(step.stateData, _fullStateSize);
@@ -85,22 +85,12 @@ class PlaybackInstance
     free(stateData);
   }
 
-  // Function to render frame
-  void renderFrame(const size_t stepId)
-  {
-    // Checking the required step id does not exceed contents of the sequence
-    if (stepId > _stepSequence.size()) JAFFAR_THROW_RUNTIME("[Error] Attempting to render a step larger than the step sequence");
-
-    // Updating video buffer
-    const auto &step = _stepSequence[stepId];
-  }
-
   size_t getSequenceLength() const
   {
     return _stepSequence.size();
   }
 
-  const std::string getInputString(const size_t stepId) const
+  const char getInputString(const size_t stepId) const
   {
     // Checking the required step id does not exceed contents of the sequence
     if (stepId > _stepSequence.size()) JAFFAR_THROW_RUNTIME("[Error] Attempting to render a step larger than the step sequence");
@@ -109,7 +99,7 @@ class PlaybackInstance
     const auto &step = _stepSequence[stepId];
 
     // Returning step input
-    return step.inputString;
+    return step.input;
   }
 
   const jaffar::input_t getInputData(const size_t stepId) const

@@ -36,13 +36,10 @@ public:
   {
   }
 
-  inline input_t parseInputString(const std::string &inputString) const
+  inline input_t parseInputString(const char c) const
   {
     // Storage for the input
     input_t input;
-
-    // Currently read character
-    char c = inputString[0];
 
     // Parsing input
     if (c == 'U' || c == 'u') input.key = UP;

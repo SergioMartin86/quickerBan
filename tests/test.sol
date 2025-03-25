@@ -1,4 +1,1 @@
-U
-L
-D
-R
+DuLLrUUdrR

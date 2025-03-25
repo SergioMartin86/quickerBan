@@ -4,6 +4,7 @@
 #include <jaffarCommon/exceptions.hpp>
 #include <jaffarCommon/file.hpp>
 #include <jaffarCommon/json.hpp>
+#include <jaffarCommon/logger.hpp>
 #include <jaffarCommon/serializers/base.hpp>
 #include <jaffarCommon/deserializers/base.hpp>
 #include <jaffarCommon/serializers/contiguous.hpp>
@@ -34,17 +35,18 @@ class EmuInstance
     // Setting input
     auto inputValue = input.key;
 
-    // Running a single frame
-    // retro_run();
+    if (inputValue == InputKey_t::UP) _room.move(-1, 0);
+    if (inputValue == InputKey_t::DOWN) _room.move(1, 0);
+    if (inputValue == InputKey_t::RIGHT) _room.move(0, 1);
+    if (inputValue == InputKey_t::LEFT) _room.move(0, -1);
   }
 
   inline jaffarCommon::hash::hash_t getStateHash() const
   {
     MetroHash128 hash;
     
-    // //  Getting RAM pointer and size
-    // hash.Update(_memoryAreas.wram, _memorySizes.wram);
-    // hash.Update(_memoryAreas.vram, _memorySizes.vram);
+    //  Getting RAM pointer and size
+    hash.Update(_room.getState(), _room.getStateSize());
 
     jaffarCommon::hash::hash_t result;
     hash.Finalize(reinterpret_cast<uint8_t *>(&result));
@@ -59,51 +61,53 @@ class EmuInstance
     if (status == false) JAFFAR_THROW_LOGIC("Could not find/read from input sok file: %s\n", _inputRoomFilePath.c_str());
 
     _room.parse(inputRoomData);
-    _room.print();
+
+    _stateSize = _room.getStateSize();
   }
 
-  size_t getEmulatorStateSize()
+  void printInfo()
   {
-    // return (size_t)_emu->saveState(nullptr, 0, nullptr);
-    return 0;
-  }
+     _room.printMap();
 
-  void enableStateBlock(const std::string& block) 
-  {
-    // enableStateBlockImpl(block);
-  }
+     // Getting score
+     jaffarCommon::logger::log("[] Boxes on Goal: %lu / %lu\n", _room.getBoxesOnGoal(), _room.getGoalCount());
 
-  void disableStateBlock(const std::string& block)
-  {
-    //  disableStateBlockImpl(block);
-    // _stateSize = getEmulatorStateSize();
-  }
+     // Getting state
+     const auto& state = _room.getState();
+     const auto boxCount = _room.getBoxCount();
+     jaffarCommon::logger::log("[] Pusher pos: (%u, %u)\n", state[0], state[1]);
+     for (size_t i = 0; i < boxCount; i++)
+     {
+       const uint8_t boxPosY = state[2*(i+1) + 0];
+       const uint8_t boxPosX = state[2*(i+1) + 1];
+       jaffarCommon::logger::log("[] Box %2u pos: (%u, %u)\n", i, boxPosY, boxPosX);
+     }
 
-  void setWorkRamSerializationSize(const size_t size)
-  {
-    // setWorkRamSerializationSizeImpl(size);
-    // _stateSize = getEmulatorStateSize();
+     jaffarCommon::logger::log("[] Possible Moves: { ");
+     if (_room.canMoveUp()) jaffarCommon::logger::log("U");
+     if (_room.canMoveDown()) jaffarCommon::logger::log("D");
+     if (_room.canMoveLeft()) jaffarCommon::logger::log("L");
+     if (_room.canMoveRight()) jaffarCommon::logger::log("R");
+     jaffarCommon::logger::log(" }\n");
   }
 
   inline size_t getStateSize() const 
   {
-    // return _stateSize;
-    return 0;
+    return _stateSize;
   }
 
   inline jaffar::InputParser *getInputParser() const { return _inputParser.get(); }
   
   void serializeState(jaffarCommon::serializer::Base& s) const
   {
-    // VFile* vf;
-    // _emu->saveState(nullptr, 0, (char*)_dummyStateData);
-    // s.push(_dummyStateData, _stateSize);
+    _room.saveState(s.getOutputDataBuffer());
+    s.push(nullptr, _stateSize);
   }
 
   void deserializeState(jaffarCommon::deserializer::Base& d) 
   {
-    // d.pop(_dummyStateData, _stateSize);
-    // _emu->loadState((char*)_dummyStateData, _stateSize);
+    _room.loadState(d.getInputDataBuffer());
+    d.pop(nullptr, _stateSize);
   }
 
   std::string getCoreName() const { return "QuickerBan"; }
