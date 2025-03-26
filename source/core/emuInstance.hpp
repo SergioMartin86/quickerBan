@@ -76,12 +76,12 @@ class EmuInstance
      const auto& state = _room.getState();
      const auto boxCount = _room.getBoxCount();
      jaffarCommon::logger::log("[] Pusher pos: (%u, %u)\n", state[0], state[1]);
-     for (size_t i = 0; i < boxCount; i++)
-     {
-       const uint8_t boxPosY = state[2*(i+1) + 0];
-       const uint8_t boxPosX = state[2*(i+1) + 1];
-       jaffarCommon::logger::log("[] Box %2u pos: (%u, %u)\n", i, boxPosY, boxPosX);
-     }
+    //  for (size_t i = 0; i < boxCount; i++)
+    //  {
+    //    const uint8_t boxPosY = state[2*(i+1) + 0];
+    //    const uint8_t boxPosX = state[2*(i+1) + 1];
+    //    jaffarCommon::logger::log("[] Box %2u pos: (%u, %u)\n", i, boxPosY, boxPosX);
+    //  }
 
      jaffarCommon::logger::log("[] Possible Moves: { ");
      if (_room.canMoveUp()) jaffarCommon::logger::log("U");
