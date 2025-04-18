@@ -4,6 +4,9 @@
 #include <cstdio>
 #include <unistd.h>
 #include <jaffarCommon/string.hpp>
+#include <jaffarCommon/serializers/base.hpp>
+#include <jaffarCommon/deserializers/base.hpp>
+#include <jaffarCommon/exceptions.hpp>
 
 namespace quickerBan {
 
@@ -61,6 +64,7 @@ class Room
     long pageSize = sysconf (_SC_PAGESIZE);
     _background = (uint8_t*)aligned_alloc(pageSize, _height * _width * sizeof(uint8_t));
     _tiles = (uint8_t*)aligned_alloc(pageSize, _height * _width * sizeof(uint8_t));
+    _tmp = (uint8_t*)aligned_alloc(pageSize, _height * _width * sizeof(uint8_t));
 
     // Clearing room 
     for (uint8_t i = 0; i < _height; i++)
@@ -114,6 +118,7 @@ class Room
   __INLINE__ bool canMoveLeft() const { return canMove(0, -1); }
   __INLINE__ bool canMoveRight() const { return canMove(0, 1); }
 
+  // Returns true if deadlock, false if ok
   __INLINE__ bool move(const int8_t deltaY, const int8_t deltaX) 
   {
     // Locating pusher's target destination
@@ -129,27 +134,103 @@ class Room
     const auto destPosX = pusherPosX + deltaX;
     const auto index1 = getIndex(destPosY, destPosX);
 
+    // Reset moved box flag
+    _movedBox = false;
+
+    // Flag to report deadlock
+    bool isDeadlock = false;
+
     // Checking if there is a box there already
     const auto tile1Type = _tiles[index1];
+
+    // Move the pusher now
+    _tiles[index1] = itemType::pusher;
+
+    // Now handle the box push, if one
     if (tile1Type == itemType::box || tile1Type == itemType::box_on_goal)
     {
+       // Setting flag
+       _movedBox = true;
+
        // Moving box
        const auto dest2PosY = destPosY + deltaY;
        const auto dest2PosX = destPosX + deltaX;
        const auto index2 = getIndex(dest2PosY, dest2PosX);
-       if (_background[index2] == itemType::goal) _tiles[index2] = itemType::box_on_goal;
+
+      // Check if box is moving to a goal
+      const bool isBoxOnGoal = _background[index2] == itemType::goal;
+
+       // Checking deadlock
+       if (isBoxOnGoal == false) isDeadlock = checkBoxDeadlock(dest2PosY, dest2PosX);
+
+       // Moving box
+       if (isBoxOnGoal) _tiles[index2] = itemType::box_on_goal;
        else _tiles[index2] = itemType::box;
     }
-
-    // Setting pusher in his new position
-    _tiles[index1] = itemType::pusher;
 
     // Updating state
     updateState();
 
-    return true;
+    return isDeadlock;
   }
   
+  // Checking if the recently moved box that is not in a goal position has provoked a deadlock
+  __INLINE__ bool checkBoxDeadlock(const uint8_t y, const uint8_t x)
+  {
+    // Check 1: If the box is stuck between two walls
+    //  x#
+    //  #
+    if (_background[getIndex(y+1, x)] == itemType::wall && _background[getIndex(y, x+1)] == itemType::wall) return true;
+
+    // #x
+    //  #
+    if (_background[getIndex(y+1, x)] == itemType::wall && _background[getIndex(y, x-1)] == itemType::wall) return true;
+
+    // # 
+    // x#
+    if (_background[getIndex(y-1, x)] == itemType::wall && _background[getIndex(y, x+1)] == itemType::wall) return true;
+
+    //  #
+    // #x
+    if (_background[getIndex(y-1, x)] == itemType::wall && _background[getIndex(y, x-1)] == itemType::wall) return true;
+
+    // Check 2: If the box is bunched up in a square
+    // x$
+    // $$
+    if (
+            (_tiles[getIndex(y+1, x+0)] == itemType::box || _tiles[getIndex(y+1, x+0)] == itemType::box_on_goal || _tiles[getIndex(y+1, x+0)] == itemType::wall)
+         && (_tiles[getIndex(y+0, x+1)] == itemType::box || _tiles[getIndex(y+0, x+1)] == itemType::box_on_goal || _tiles[getIndex(y+0, x+1)] == itemType::wall)
+         && (_tiles[getIndex(y+1, x+1)] == itemType::box || _tiles[getIndex(y+1, x+1)] == itemType::box_on_goal || _tiles[getIndex(y+1, x+1)] == itemType::wall)
+    ) return true;
+
+    // $x
+    // $$
+    if (
+         (_tiles[getIndex(y+1, x+0)] == itemType::box || _tiles[getIndex(y+1, x+0)] == itemType::box_on_goal || _tiles[getIndex(y+1, x+0)] == itemType::wall)
+      && (_tiles[getIndex(y+0, x-1)] == itemType::box || _tiles[getIndex(y+0, x-1)] == itemType::box_on_goal || _tiles[getIndex(y+0, x-1)] == itemType::wall)
+      && (_tiles[getIndex(y+1, x-1)] == itemType::box || _tiles[getIndex(y+1, x-1)] == itemType::box_on_goal || _tiles[getIndex(y+1, x-1)] == itemType::wall)
+        ) return true;
+
+    // $$
+    // x$
+    if (
+           (_tiles[getIndex(y-1, x+0)] == itemType::box || _tiles[getIndex(y-1, x+0)] == itemType::box_on_goal || _tiles[getIndex(y-1, x+0)] == itemType::wall)
+        && (_tiles[getIndex(y+0, x+1)] == itemType::box || _tiles[getIndex(y+0, x+1)] == itemType::box_on_goal || _tiles[getIndex(y+0, x+1)] == itemType::wall)
+        && (_tiles[getIndex(y-1, x+1)] == itemType::box || _tiles[getIndex(y-1, x+1)] == itemType::box_on_goal || _tiles[getIndex(y-1, x+1)] == itemType::wall)
+     ) return true;
+
+    // $$
+    // $x
+    if (
+           (_tiles[getIndex(y-1, x+0)] == itemType::box || _tiles[getIndex(y-1, x+0)] == itemType::box_on_goal || _tiles[getIndex(y-1, x+0)] == itemType::wall)
+        && (_tiles[getIndex(y+0, x-1)] == itemType::box || _tiles[getIndex(y+0, x-1)] == itemType::box_on_goal || _tiles[getIndex(y+0, x-1)] == itemType::wall)
+        && (_tiles[getIndex(y-1, x-1)] == itemType::box || _tiles[getIndex(y-1, x-1)] == itemType::box_on_goal || _tiles[getIndex(y-1, x-1)] == itemType::wall)
+       ) return true;
+
+    return false;
+  }
+
+  __INLINE__ bool getMovedBox() const { return _movedBox; }
   __INLINE__ size_t getBoxesOnGoal() const
    {
     size_t boxesOnGoal = 0;
@@ -168,17 +249,72 @@ class Room
     return _goalCount;
   }
 
+  __INLINE__ uint32_t getTotalDistanceToGoal()
+  {
+    memcpy(_tmp, _tiles, sizeof(uint8_t) * _height * _width);
+    uint32_t totalDistance = 0;
+
+    // Getting pusher position
+    const auto pusherPosY = _state[0];
+    const auto pusherPosX = _state[1];
+    const auto pusherIdx = getIndex(pusherPosY, pusherPosX); 
+    if (_background[pusherIdx] == itemType::goal) _tmp[pusherIdx] = itemType::goal;
+
+    // For each of the boxes
+    for (size_t box = 0; box < _boxCount; box++) 
+    {
+      auto boxPosY = _state[(box+1) * 2 + 0];
+      auto boxPosX = _state[(box+1) * 2 + 1];
+      const auto boxIdx = getIndex(boxPosY, boxPosX); 
+      
+      // If box is on goal continue
+      if (_background[boxIdx] == itemType::goal)  continue;
+
+      // Storing index of the closest goal
+      uint16_t shortestGoalIndex = 0;
+      uint32_t shortestGoalDistance = _height + _width;
+
+      // Look for the closest free goal
+      for (size_t i = 0; i < _height; i++)
+      for (size_t j = 0; j < _width; j++)
+      {
+        // Getting index
+        const auto curIndex = getIndex(i, j);
+        if (_tmp[curIndex] == itemType::goal) 
+        {
+          // Getting distance
+          const uint32_t curDistance = std::abs((int)boxPosY - (int)i) + std::abs((int)boxPosX - (int)j);
+          if (curDistance < shortestGoalDistance)
+          {
+            shortestGoalDistance = curDistance;
+            shortestGoalIndex = curIndex;
+          }
+        }
+      }
+
+      if (shortestGoalIndex == 0) JAFFAR_THROW_RUNTIME("Could not find a goal for the box");
+
+      // Replacing shortest goal so it's not used again
+      _tmp[shortestGoalIndex] = itemType::box_on_goal;
+
+      // Adding distance
+      totalDistance += shortestGoalDistance;
+    }
+
+    return totalDistance;
+  }
+
   __INLINE__ uint8_t* getState() const { return _state; }
   
-  __INLINE__ void loadState(const uint8_t* state)
+  __INLINE__ void loadState(jaffarCommon::deserializer::Base &deserializer)
   {
-    memcpy(_state, state, _stateSize);
+    deserializer.pop(_state, _stateSize);
     updateTiles();
   }
 
-  __INLINE__ void saveState(uint8_t* state) const
+  __INLINE__ void saveState(jaffarCommon::serializer::Base &serializer) const
   {
-    memcpy(state, _state, _stateSize);
+    serializer.push(_state, _stateSize);
   }
 
   __INLINE__ size_t getStateSize() const { return _stateSize; }
@@ -275,6 +411,9 @@ class Room
 
   uint8_t* _background = nullptr;
   uint8_t* _tiles = nullptr;
+  
+  uint8_t* _tmp = nullptr; // for temporary calculations
+
   uint8_t _width = 0;
   uint8_t _height = 0;
 
@@ -282,6 +421,8 @@ class Room
   size_t _stateSize;
   size_t _boxCount = 0;
   size_t _goalCount = 0;
+
+  bool _movedBox = false;
 
 };
 

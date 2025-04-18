@@ -35,10 +35,11 @@ class EmuInstance
     // Setting input
     auto inputValue = input.key;
 
-    if (inputValue == InputKey_t::UP) _room.move(-1, 0);
-    if (inputValue == InputKey_t::DOWN) _room.move(1, 0);
-    if (inputValue == InputKey_t::RIGHT) _room.move(0, 1);
-    if (inputValue == InputKey_t::LEFT) _room.move(0, -1);
+    _isDeadlock = true;
+    if (inputValue == InputKey_t::UP) _isDeadlock = _room.move(-1, 0);
+    if (inputValue == InputKey_t::DOWN) _isDeadlock = _room.move(1, 0);
+    if (inputValue == InputKey_t::RIGHT) _isDeadlock = _room.move(0, 1);
+    if (inputValue == InputKey_t::LEFT) _isDeadlock = _room.move(0, -1);
   }
 
   inline jaffarCommon::hash::hash_t getStateHash() const
@@ -69,26 +70,13 @@ class EmuInstance
   {
      _room.printMap();
 
-     // Getting score
-     jaffarCommon::logger::log("[] Boxes on Goal: %lu / %lu\n", _room.getBoxesOnGoal(), _room.getGoalCount());
-
-     // Getting state
-     const auto& state = _room.getState();
-     const auto boxCount = _room.getBoxCount();
-     jaffarCommon::logger::log("[] Pusher pos: (%u, %u)\n", state[0], state[1]);
-    //  for (size_t i = 0; i < boxCount; i++)
-    //  {
-    //    const uint8_t boxPosY = state[2*(i+1) + 0];
-    //    const uint8_t boxPosX = state[2*(i+1) + 1];
-    //    jaffarCommon::logger::log("[] Box %2u pos: (%u, %u)\n", i, boxPosY, boxPosX);
-    //  }
-
-     jaffarCommon::logger::log("[] Possible Moves: { ");
-     if (_room.canMoveUp()) jaffarCommon::logger::log("U");
-     if (_room.canMoveDown()) jaffarCommon::logger::log("D");
-     if (_room.canMoveLeft()) jaffarCommon::logger::log("L");
-     if (_room.canMoveRight()) jaffarCommon::logger::log("R");
-     jaffarCommon::logger::log(" }\n");
+    //  // Getting state
+    //  jaffarCommon::logger::log("[] Possible Moves: { ");
+    //  if (_room.canMoveUp()) jaffarCommon::logger::log("U");
+    //  if (_room.canMoveDown()) jaffarCommon::logger::log("D");
+    //  if (_room.canMoveLeft()) jaffarCommon::logger::log("L");
+    //  if (_room.canMoveRight()) jaffarCommon::logger::log("R");
+    //  jaffarCommon::logger::log(" }\n");
   }
 
   inline bool canMoveUp() const {return _room.canMoveUp(); }
@@ -97,6 +85,9 @@ class EmuInstance
   inline bool canMoveRight() const {return _room.canMoveRight(); }
   inline size_t getBoxesOnGoal() const {return _room.getBoxesOnGoal(); }
   inline size_t getGoalCount() const {return _room.getGoalCount(); }
+  inline bool getMovedBox() const { return _room.getMovedBox(); }
+  inline bool getIsDeadlock() const { return _isDeadlock; }
+  inline uint32_t getTotalDistance() { return _room.getTotalDistanceToGoal(); }
 
   inline uint8_t* getState() const 
   {
@@ -112,14 +103,12 @@ class EmuInstance
   
   void serializeState(jaffarCommon::serializer::Base& s) const
   {
-    if (s.getOutputDataBuffer() != nullptr) _room.saveState(s.getOutputDataBuffer());
-    s.push(nullptr, _stateSize);
+    _room.saveState(s);
   }
 
   void deserializeState(jaffarCommon::deserializer::Base& d) 
   {
-    _room.loadState(d.getInputDataBuffer());
-    d.pop(nullptr, _stateSize);
+    _room.loadState(d);
   }
 
   std::string getCoreName() const { return "QuickerBan"; }
@@ -130,6 +119,7 @@ class EmuInstance
   std::unique_ptr<jaffar::InputParser> _inputParser;
   std::string _inputRoomFilePath;
   quickerBan::Room _room;
+  bool _isDeadlock = false;
 };
 
 } // namespace jaffar
